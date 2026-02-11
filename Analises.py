@@ -1,5 +1,5 @@
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -9,16 +9,16 @@ from telegram.ext import (
     ContextTypes,
 )
 
-# ==============================
-# 🔐 CONFIGURAÇÕES
-# ==============================
+# =============================
+# 🔐 COLE AQUI SUAS INFORMAÇÕES
+# =============================
 
-BOT_TOKEN = "8502821738:AAFMPDzVKl9B1KIPvp5dX9jhRBIScy_SQv0"
-ADMIN_IDS = [8431121309]  
+BOT_TOKEN = ""8502821738:AAFMPDzVKl9B1KIPvp5dX9jhRBIScy_SQv0"
+ADMIN_IDS = [843112130]  # exemplo: [123456789]
 
-# ==============================
+# =============================
 # 🎯 REGRAS
-# ==============================
+# =============================
 
 REGRA_A = {3, 6, 9, 13, 16, 19, 23, 26, 29, 33, 36}
 REGRA_B = {19, 32, 15, 0, 26, 3, 35, 12, 28, 8, 23, 10, 5}
@@ -26,11 +26,10 @@ REGRA_B = {19, 32, 15, 0, 26, 3, 35, 12, 28, 8, 23, 10, 5}
 historico = []
 contador_a = 0
 contador_b = 0
-bancas = {}
 
-# ==============================
-# 🎨 FUNÇÕES AUXILIARES
-# ==============================
+# =============================
+# 🎨 TECLADO 0 A 36
+# =============================
 
 def criar_teclado():
     teclado = []
@@ -47,16 +46,24 @@ def criar_teclado():
 
     return InlineKeyboardMarkup(teclado)
 
+# =============================
+# 📊 PLACAR
+# =============================
 
 def gerar_placar():
-    texto = "📊 PLACAR AO VIVO (15 Rodadas)\n\n"
+    texto = "📊 PLACAR AO VIVO (15 RODADAS)\n\n"
     for i, numero in enumerate(historico[-15:], start=1):
         texto += f"{i}️⃣ {numero}\n"
     return texto
 
+# =============================
+# 🚨 VERIFICAR REGRAS
+# =============================
 
 def verificar_regras(numero):
     global contador_a, contador_b
+
+    sinais = []
 
     if numero in REGRA_A:
         contador_a = 0
@@ -68,8 +75,6 @@ def verificar_regras(numero):
     else:
         contador_b += 1
 
-    sinais = []
-
     if contador_a >= 10:
         sinais.append("🚨 SINAL REGRA A 🚨")
         contador_a = 0
@@ -80,30 +85,19 @@ def verificar_regras(numero):
 
     return sinais
 
-
-# ==============================
-# 🚀 COMANDOS
-# ==============================
+# =============================
+# 🚀 COMANDO START
+# =============================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "💰 Informe sua banca inicial:"
+        "✅ BOT ONLINE\n\nClique nos números para registrar jogadas.",
+        reply_markup=criar_teclado()
     )
 
-
-async def registrar_banca(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        valor = float(update.message.text.replace(",", "."))
-        bancas[update.effective_user.id] = valor
-
-        await update.message.reply_text(
-            f"✅ Banca registrada: R${valor}\n\n"
-            "📊 Placar iniciado!",
-            reply_markup=criar_teclado()
-        )
-    except:
-        pass
-
+# =============================
+# 🎯 CLIQUE NOS NÚMEROS
+# =============================
 
 async def clicar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global historico
@@ -113,9 +107,9 @@ async def clicar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = query.from_user.id
 
-    # Apenas admin pode clicar
+    # Apenas admin pode registrar números
     if user_id not in ADMIN_IDS:
-        await query.answer("Apenas administrador pode registrar números.", show_alert=True)
+        await query.answer("Somente administrador pode registrar números.", show_alert=True)
         return
 
     numero = int(query.data.split("_")[1])
@@ -137,10 +131,9 @@ async def clicar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=criar_teclado()
     )
 
-
-# ==============================
+# =============================
 # ▶️ MAIN
-# ==============================
+# =============================
 
 def main():
     logging.basicConfig(level=logging.INFO)
@@ -148,12 +141,10 @@ def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, registrar_banca))
     app.add_handler(CallbackQueryHandler(clicar))
 
-    print("Bot rodando...")
+    print("BOT INICIADO COM SUCESSO")
     app.run_polling()
-
 
 if _name_ == "_main_":
     main()
