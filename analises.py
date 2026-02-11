@@ -13,7 +13,7 @@ from telegram.ext import (
 # 🔐 COLE AQUI SUAS INFORMAÇÕES
 # =============================
 
-BOT_TOKEN = ""8502821738:AAFMPDzVKl9B1KIPvp5dX9jhRBIScy_SQv0"
+BOT_TOKEN = "8502821738:AAFMPDzVKl9B1KIPvp5dX9jhRBIScy_SQv0"
 ADMIN_IDS = [843112130]  # exemplo: [123456789]
 
 # =============================
