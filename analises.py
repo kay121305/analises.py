@@ -1,216 +1,187 @@
 import logging
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from telegram.ext import (
-    ApplicationBuilder,
+    Application,
     CommandHandler,
     CallbackQueryHandler,
-    MessageHandler,
     ContextTypes,
-    filters,
 )
 
-# ======================================
-# 🔐 CONFIGURAÇÕES
-# ======================================
+# =============================
+# 🔐 CONFIGURAÇÃO
+# =============================
 
 BOT_TOKEN = "8472485329:AAF1IXgzm1AaRdKKXbT-pRmQa0VBhNz_2ow"
-ADMIN_IDS = [8431121309] 
+ADMIN_IDS = [8431121309]
 
-# ======================================
-# 🎯 REGRA B
-# ======================================
+# =============================
+# 🎯 REGRAS
+# =============================
 
-grupoB = {
-    19, 32, 15, 0, 26, 3, 35, 12, 28,
-    8, 23, 10, 5
-}
+REGRA_A = {3, 6, 9, 13, 16, 19, 23, 26, 29, 33, 36}
+REGRA_B = {19, 32, 15, 0, 26, 3, 35, 12, 28, 8, 23, 10, 5}
 
-vermelhos = {1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36}
+historico = []
+contador_a = 0
+contador_b = 0
+bancas = {}
 
-# ======================================
-# 📊 VARIÁVEIS
-# ======================================
-
-rodadas = []
-contadorB = 0
-usuarios = {}
-chat_ids = set()
-
-logging.basicConfig(level=logging.INFO)
-
-# ======================================
+# =============================
 # 🎨 FUNÇÕES
-# ======================================
+# =============================
 
-def info_numero(n):
-    if n == 0:
-        return "🟢 Zero"
-
-    cor = "🔴" if n in vermelhos else "⚫"
-    alto = "⬆ Alto" if n >= 19 else "⬇ Baixo"
-    coluna = ((n - 1) % 3) + 1
-    duzia = ((n - 1) // 12) + 1
-
-    return f"{alto} {cor} | Coluna {coluna} | {duzia}ª Dúzia"
-
-def teclado_admin():
+def criar_teclado():
     teclado = []
     linha = []
+
     for i in range(37):
-        linha.append(InlineKeyboardButton(str(i), callback_data=str(i)))
+        linha.append(InlineKeyboardButton(str(i), callback_data=f"num_{i}"))
         if len(linha) == 6:
             teclado.append(linha)
             linha = []
+
     if linha:
         teclado.append(linha)
+
     return InlineKeyboardMarkup(teclado)
 
+
+def info_roleta(numero):
+    cores_vermelhas = {
+        1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36
+    }
+
+    cor = "🔴 Vermelho" if numero in cores_vermelhas else "⚫ Preto"
+    if numero == 0:
+        cor = "🟢 Verde"
+
+    coluna = (
+        "1ª Coluna" if numero % 3 == 1 else
+        "2ª Coluna" if numero % 3 == 2 else
+        "3ª Coluna"
+    ) if numero != 0 else "-"
+
+    duzia = (
+        "1ª Dúzia" if 1 <= numero <= 12 else
+        "2ª Dúzia" if 13 <= numero <= 24 else
+        "3ª Dúzia"
+    ) if numero != 0 else "-"
+
+    alto_baixo = "Alto" if numero >= 19 else "Baixo"
+    if numero == 0:
+        alto_baixo = "-"
+
+    return f"{alto_baixo} | {cor} | {coluna} | {duzia}"
+
+
 def gerar_placar():
-    texto = "🎯 <b>ANÁLISES - PLACAR AO VIVO</b>\n"
-    texto += "━━━━━━━━━━━━━━━━━━\n\n"
+    texto = "📊 PLACAR AO VIVO (15 rodadas)\n\n"
 
-    for i, n in enumerate(rodadas, start=1):
-        texto += f"{i:02d}️⃣  {n} → {info_numero(n)}\n"
-
-    texto += "\n━━━━━━━━━━━━━━━━━━"
-    texto += f"\n📊 Regra B sem sair: {contadorB}"
+    for i, n in enumerate(historico[-15:], start=1):
+        texto += f"{i}️⃣ {n}\n"
 
     return texto
 
-def calcular_gestao(banca):
-    conservador = 12
-    medio = banca / 2
-    agressivo = banca
 
-    def calc(valor):
-        ficha = round(valor / 12, 2)
-        retorno = round(ficha * 36, 2)
-        lucro = round(retorno - valor, 2)
-        return valor, ficha, lucro
+def verificar_regras(context, ultimo):
+    global contador_a, contador_b
 
-    return calc(conservador), calc(medio), calc(agressivo)
+    if ultimo in REGRA_A:
+        contador_a = 0
+    else:
+        contador_a += 1
 
-# ======================================
-# 🚀 START
-# ======================================
+    if ultimo in REGRA_B:
+        contador_b = 0
+    else:
+        contador_b += 1
+
+    if contador_a >= 10:
+        context.bot.send_message(
+            chat_id=context._chat_id,
+            text=f"🚨 SINAL REGRA A 🚨\nEntrar agora!\nÚltimo número: {ultimo}"
+        )
+        contador_a = 0
+
+    if contador_b >= 10:
+        context.bot.send_message(
+            chat_id=context._chat_id,
+            text=f"🚨 SINAL REGRA B 🚨\nEntrar agora!\nÚltimo número: {ultimo}"
+        )
+        contador_b = 0
+
+
+# =============================
+# 🚀 COMANDOS
+# =============================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    chat_ids.add(chat_id)
-
     await update.message.reply_text(
-        "💰 Informe sua banca inicial (ex: 50)"
+        "💰 Qual sua banca inicial?"
     )
 
-# ======================================
-# 💰 RECEBER BANCA
-# ======================================
 
 async def receber_banca(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-
-    if chat_id in usuarios:
-        return
-
     try:
-        banca = float(update.message.text)
-        usuarios[chat_id] = banca
+        valor = float(update.message.text.replace(",", "."))
+        bancas[update.effective_user.id] = valor
 
         await update.message.reply_text(
-            f"✅ Banca registrada: R${banca:.2f}\nInicializando sistema ANÁLISES..."
+            "✅ Banca registrada!\n\n📊 Placar iniciado.",
+            reply_markup=criar_teclado()
         )
-
-        await update.message.reply_text(
-            gerar_placar(),
-            parse_mode="HTML"
-        )
-
-        if update.effective_user.id in ADMIN_IDS:
-            await update.message.reply_text(
-                "🔐 PAINEL ADMIN - ANÁLISES",
-                reply_markup=teclado_admin()
-            )
-
     except:
-        await update.message.reply_text("Digite apenas números.")
+        pass
 
-# ======================================
-# 🎰 CLIQUE ADMIN
-# ======================================
 
-async def clique(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global contadorB, rodadas
+async def clicar(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global historico
 
     query = update.callback_query
     await query.answer()
 
-    if query.from_user.id not in ADMIN_IDS:
-        return
+    numero = int(query.data.split("_")[1])
+    historico.append(numero)
 
-    numero = int(query.data)
+    if len(historico) > 15:
+        historico = historico[-15:]
 
-    if len(rodadas) == 15:
-        rodadas = []
+    texto = (
+        f"🎯 Número: {numero}\n"
+        f"{info_roleta(numero)}\n\n"
+        f"{gerar_placar()}"
+    )
 
-    rodadas.append(numero)
+    await query.edit_message_text(
+        texto=texto,
+        reply_markup=criar_teclado()
+    )
 
-    if numero in grupoB:
-        contadorB = 0
-    else:
-        contadorB += 1
+    verificar_regras(context, numero)
 
-    for chat in chat_ids:
-        try:
-            await context.bot.send_message(chat, gerar_placar(), parse_mode="HTML")
-        except:
-            pass
 
-    if contadorB >= 10:
-        for chat in chat_ids:
-            banca = usuarios.get(chat, 50)
-            cons, med, agr = calcular_gestao(banca)
+# =============================
+# ▶️ MAIN
+# =============================
 
-            mensagem = f"""
-🚨 <b>SINAL ANÁLISES - REGRA B</b> 🚨
+def main():
+    logging.basicConfig(level=logging.INFO)
 
-Se não saiu 10 vezes:
-19, 32, 15, 0, 26, 3, 35, 12, 28, 8, 23, 10 e 5
+    app = Application.builder().token(BOT_TOKEN).build()
 
-🎯 Entrar agora!
-🎲 Último número: <b>{numero}</b>
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(clicar))
+    app.add_handler(
+        CommandHandler(None, receber_banca)
+    )
 
-💰 Banca: R${banca:.2f}
+    print("Bot rodando...")
+    app.run_polling()
 
-🟢 Conservador
-Apostar: R${cons[0]:.2f}
-Ficha: R${cons[1]:.2f}
-Lucro possível: R${cons[2]:.2f}
 
-🟡 Médio
-Apostar: R${med[0]:.2f}
-Ficha: R${med[1]:.2f}
-Lucro possível: R${med[2]:.2f}
-
-🔴 Agressivo
-Apostar: R${agr[0]:.2f}
-Ficha: R${agr[1]:.2f}
-Lucro possível: R${agr[2]:.2f}
-"""
-            try:
-                await context.bot.send_message(chat, mensagem, parse_mode="HTML")
-            except:
-                pass
-
-        contadorB = 0
-
-# ======================================
-# 🤖 INICIAR
-# ======================================
-
-app = ApplicationBuilder().token(BOT_TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, receber_banca))
-app.add_handler(CallbackQueryHandler(clique))
-
-app.run_polling()
+if __name__ == "__main__":
+    main()
