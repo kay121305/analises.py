@@ -1,1 +1,1 @@
-web: python mesacripyt.py
+web: python analises.py
