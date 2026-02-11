@@ -4,17 +4,15 @@ from telegram.ext import (
     Application,
     CommandHandler,
     CallbackQueryHandler,
-    MessageHandler,
-    filters,
-    ContextTypes,
+    ContextTypes
 )
 
 # =============================
-# 🔐 COLE AQUI SUAS INFORMAÇÕES
+# 🔐 CONFIGURAÇÕES
 # =============================
 
-BOT_TOKEN = "8502821738:AAFMPDzVKl9B1KIPvp5dX9jhRBIScy_SQv0"
-ADMIN_IDS = [843112130]  # exemplo: [123456789]
+BOT_TOKEN = "8502821738:AAFMPDzVKl9B1KIPvp5dX9jhRBIScy_SQv0"  # Ex: "123456:ABCDEF"
+ADMIN_IDS = [8431121309]     # Ex: [123456789]
 
 # =============================
 # 🎯 REGRAS
@@ -28,7 +26,7 @@ contador_a = 0
 contador_b = 0
 
 # =============================
-# 🎨 TECLADO 0 A 36
+# 🎨 TECLADO 0-36
 # =============================
 
 def criar_teclado():
@@ -86,7 +84,7 @@ def verificar_regras(numero):
     return sinais
 
 # =============================
-# 🚀 COMANDO START
+# 🚀 COMANDO /start
 # =============================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -107,7 +105,6 @@ async def clicar(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = query.from_user.id
 
-    # Apenas admin pode registrar números
     if user_id not in ADMIN_IDS:
         await query.answer("Somente administrador pode registrar números.", show_alert=True)
         return
@@ -121,7 +118,6 @@ async def clicar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sinais = verificar_regras(numero)
 
     texto = gerar_placar()
-
     if sinais:
         texto += "\n\n" + "\n".join(sinais)
         texto += f"\n🎯 Último número: {numero}"
@@ -145,6 +141,7 @@ def main():
 
     print("BOT INICIADO COM SUCESSO")
     app.run_polling()
+
 
 if _name_ == "_main_":
     main()
